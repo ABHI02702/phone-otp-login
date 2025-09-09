@@ -1,58 +1,93 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Users</title>
+  <title>All Users (Admin)</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
 </head>
 <body class="bg-light">
 <div class="container mt-5">
-  <div class="card p-4">
-    <h2>All Registered Users</h2>
-    <table class="table table-bordered">
-      <thead><tr><th>UID</th><th>Email</th><th>Phone</th><th>Type</th><th>Last Login</th></tr></thead>
+  <div class="card p-4 shadow-lg rounded-4">
+    <h2 class="mb-4">👥 All Registered Users</h2>
+    <div id="alertBox"></div>
+    <table class="table table-bordered table-striped">
+      <thead class="table-dark">
+        <tr>
+          <th>UID</th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th>Type</th>
+          <th>Last Login</th>
+        </tr>
+      </thead>
       <tbody id="usersTable"></tbody>
     </table>
+    <button class="btn btn-secondary mt-3" onclick="goBack()">⬅ Back</button>
   </div>
 </div>
 
 <script type="module">
- import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
- import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
- import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
- const firebaseConfig = {
-   apiKey: "AIzaSyA-q3jwEpQDWpVuud0eA87CpUdEQj9FUtA",
-   authDomain: "aks-otp-login.firebaseapp.com",
-   projectId: "aks-otp-login",
-   storageBucket: "aks-otp-login.appspot.com",
-   messagingSenderId: "702413960260",
-   appId: "1:702413960260:web:159aa8f516171d618df811"
- };
- const app = initializeApp(firebaseConfig);
- const auth = getAuth(app);
- const db = getFirestore(app);
+  // ✅ Firebase Config
+  const firebaseConfig = {
+    apiKey: "AIzaSyA-q3jwEpQDWpVuud0eA87CpUdEQj9FUtA",
+    authDomain: "aks-otp-login.firebaseapp.com",
+    projectId: "aks-otp-login",
+    storageBucket: "aks-otp-login.appspot.com",
+    messagingSenderId: "702413960260",
+    appId: "1:702413960260:web:159aa8f516171d618df811"
+  };
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
 
- const ADMIN_UID = "QZmdVg0iodOVCPJznZKVZYn9JLz2";
+  // ✅ Admin UID (tumhara UID)
+  const ADMIN_UID = "QZmdVg0iodOVCPJznZKVZYn9JLz2";
 
- onAuthStateChanged(auth, async (user) => {
-   if (!user) return window.location.href = "index.html";
-   if (user.uid !== ADMIN_UID) return document.body.innerHTML = "<div class='container mt-5'><div class='alert alert-danger'>Access denied</div></div>";
+  // ✅ Alert helper
+  function showAlert(message, type="danger") {
+    document.getElementById("alertBox").innerHTML = <div class="alert alert-${type}">${message}</div>;
+  }
 
-   const tbody = document.getElementById("usersTable");
-   const snap = await getDocs(collection(db, "users"));
-   snap.forEach(doc => {
-     const d = doc.data();
-     tbody.innerHTML += `<tr>
-       <td>${d.uid}</td>
-       <td>${d.email ?? "-"}</td>
-       <td>${d.phone ?? "-"}</td>
-       <td>${d.type ?? "-"}</td>
-       <td>${d.lastLogin ?? "-"}</td>
-     </tr>`;
-   });
- });
+  // ✅ Load Users only for Admin
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) return window.location.href = "index.html";
+    if (user.uid !== ADMIN_UID) {
+      document.body.innerHTML = "<div class='container mt-5'><div class='alert alert-danger'>🚫 Access Denied</div></div>";
+      return;
+    }
+
+    try {
+      const tbody = document.getElementById("usersTable");
+      const snap = await getDocs(collection(db, "users"));
+      if (snap.empty) {
+        tbody.innerHTML = "<tr><td colspan='5' class='text-center'>No users found</td></tr>";
+      }
+      snap.forEach(doc => {
+        const d = doc.data();
+        tbody.innerHTML += `
+          <tr>
+            <td>${d.uid}</td>
+            <td>${d.email ?? "-"}</td>
+            <td>${d.phone ?? "-"}</td>
+            <td>${d.type ?? "-"}</td>
+            <td>${d.lastLogin ?? "-"}</td>
+          </tr>`;
+      });
+    } catch (err) {
+      console.error(err);
+      showAlert("❌ Error loading users: " + err.message);
+    }
+  });
+
+  // ✅ Back button
+  window.goBack = function() {
+    window.location.href = "dashboard.html";
+  };
 </script>
 </body>
 </html>

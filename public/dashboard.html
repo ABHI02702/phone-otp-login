@@ -13,7 +13,7 @@
     <h2 class="mb-3">🎉 Dashboard</h2>
     <p id="me" class="fw-bold"></p>
 
-    <!-- Admin link (fixed user.html instead of users.html) -->
+    <!-- Admin link -->
     <a id="adminLink" href="user.html" class="btn btn-info mb-3" style="display:none;">👥 View All Users (Admin)</a>
 
     <button class="btn btn-danger" onclick="logout()">Logout</button>
@@ -43,10 +43,8 @@
       window.location.href = "index.html";
       return;
     }
-
     document.getElementById("me").innerText =
       "Logged in as: " + (user.email || user.phoneNumber || "Guest User");
-
     if (user.uid === ADMIN_UID) {
       document.getElementById("adminLink").style.display = "inline-block";
     }

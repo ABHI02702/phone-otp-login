@@ -3,6 +3,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getAuth, RecaptchaVerifier, signInWithPhoneNumber,
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  sendEmailVerification, sendPasswordResetEmail,
   signOut, onAuthStateChanged, signInAnonymously
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
@@ -16,8 +17,7 @@ const firebaseConfig = {
   projectId: "aks-otp-login",
   storageBucket: "aks-otp-login.appspot.com",
   messagingSenderId: "702413960260",
-  appId: "1:702413960260:web:159aa8f516171d618df811",
-  measurementId: "G-5Q19TWRBG0"
+  appId: "1:702413960260:web:159aa8f516171d618df811"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -29,12 +29,11 @@ let confirmationResult;
 // ---------- UI helpers ----------
 function showAlert(message, type = "success", timeout = 4000) {
   const box = document.getElementById("alertBox");
-  box.className = `alert alert-${type} mt-3`;
+  box.className = alert alert-${type} mt-3;
   box.textContent = message;
   box.style.display = "block";
   if (timeout) setTimeout(() => { box.style.display = "none"; }, timeout);
 }
-
 function showSpinner(show = true) {
   const s = document.getElementById("spinner");
   s.style.display = show ? "inline-block" : "none";
@@ -51,7 +50,6 @@ async function saveUser(user, type) {
       type: type,
       lastLogin: new Date().toISOString()
     }, { merge: true });
-    console.log("User saved:", user.uid);
   } catch (err) {
     console.error("Error saving user:", err);
   }
@@ -64,7 +62,7 @@ window.sendOTP = function () {
   const phoneNumber = raw.length === 10 && !raw.startsWith("+") ? "+91" + raw : raw;
 
   showSpinner(true);
-  window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "normal" });
+  window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
 
   signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier)
     .then((result) => {
@@ -74,7 +72,6 @@ window.sendOTP = function () {
     })
     .catch((error) => {
       showSpinner(false);
-      console.error(error);
       showAlert(error.message || "Failed to send OTP", "danger");
     });
 };
@@ -84,15 +81,13 @@ window.verifyOTP = function () {
   if (!otp) { showAlert("Enter OTP", "warning"); return; }
   showSpinner(true);
   confirmationResult.confirm(otp)
-    .then(async (cred) => {
+    .then(async () => {
       showSpinner(false);
-      showAlert("Phone login successful", "success");
       await saveUser(auth.currentUser, "phone");
       window.location.href = "dashboard.html";
     })
-    .catch((err) => {
+    .catch(() => {
       showSpinner(false);
-      console.error(err);
       showAlert("Invalid OTP", "danger");
     });
 };
@@ -105,15 +100,16 @@ window.register = function () {
 
   showSpinner(true);
   createUserWithEmailAndPassword(auth, email, password)
-    .then(async () => {
+    .then(async (cred) => {
       showSpinner(false);
-      showAlert("Registered successfully", "success");
       await saveUser(auth.currentUser, "email");
-      window.location.href = "dashboard.html";
+
+      // 🔥 Send verification email
+      await sendEmailVerification(cred.user);
+      showAlert("Registered successfully! Please verify your email.", "info");
     })
     .catch((error) => {
       showSpinner(false);
-      console.error(error);
       showAlert(error.message || "Registration failed", "danger");
     });
 };
@@ -125,16 +121,34 @@ window.login = function () {
 
   showSpinner(true);
   signInWithEmailAndPassword(auth, email, password)
-    .then(async () => {
+    .then(async (cred) => {
       showSpinner(false);
-      showAlert("Login successful", "success");
+
+      if (!cred.user.emailVerified) {
+        showAlert("Please verify your email first.", "warning");
+        return;
+      }
+
       await saveUser(auth.currentUser, "email");
       window.location.href = "dashboard.html";
     })
     .catch((error) => {
       showSpinner(false);
-      console.error(error);
       showAlert(error.message || "Login failed", "danger");
+    });
+};
+
+// 🔥 Reset Password
+window.resetPassword = function () {
+  const email = document.getElementById("email").value.trim();
+  if (!email) { showAlert("Enter your email first", "warning"); return; }
+
+  sendPasswordResetEmail(auth, email)
+    .then(() => {
+      showAlert("Password reset email sent! Check your inbox.", "info");
+    })
+    .catch((error) => {
+      showAlert(error.message || "Failed to send reset email", "danger");
     });
 };
 
@@ -144,13 +158,11 @@ window.guestLogin = function () {
   signInAnonymously(auth)
     .then(async () => {
       showSpinner(false);
-      showAlert("Guest login successful", "success");
       await saveUser(auth.currentUser, "guest");
       window.location.href = "dashboard.html";
     })
     .catch((error) => {
       showSpinner(false);
-      console.error(error);
       showAlert(error.message || "Guest login failed", "danger");
     });
 };
@@ -169,7 +181,7 @@ function showUser(user) {
   section.style.display = "block";
   const info = document.getElementById("userInfo");
   if (user.phoneNumber) info.innerText = "Phone: " + user.phoneNumber;
-  else if (user.email) info.innerText = "Email: " + user.email;
+  else if (user.email) info.innerText = "Email: " + user.email + (user.emailVerified ? " ✅" : " ❌ Not Verified");
   else info.innerText = "Guest User";
 }
 
