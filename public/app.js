@@ -3,7 +3,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getAuth, RecaptchaVerifier, signInWithPhoneNumber,
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  sendEmailVerification, sendPasswordResetEmail,
   signOut, onAuthStateChanged, signInAnonymously
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
@@ -17,7 +16,8 @@ const firebaseConfig = {
   projectId: "aks-otp-login",
   storageBucket: "aks-otp-login.appspot.com",
   messagingSenderId: "702413960260",
-  appId: "1:702413960260:web:159aa8f516171d618df811"
+  appId: "1:702413960260:web:159aa8f516171d618df811",
+  measurementId: "G-5Q19TWRBG0"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -29,14 +29,16 @@ let confirmationResult;
 // ---------- UI helpers ----------
 function showAlert(message, type = "success", timeout = 4000) {
   const box = document.getElementById("alertBox");
-  box.className = alert alert-${type} mt-3;
+  if (!box) return;
+  box.className = `alert alert-${type} mt-3`;
   box.textContent = message;
   box.style.display = "block";
   if (timeout) setTimeout(() => { box.style.display = "none"; }, timeout);
 }
+
 function showSpinner(show = true) {
   const s = document.getElementById("spinner");
-  s.style.display = show ? "inline-block" : "none";
+  if (s) s.style.display = show ? "inline-block" : "none";
 }
 
 // ---------- Save user to Firestore ----------
@@ -62,7 +64,7 @@ window.sendOTP = function () {
   const phoneNumber = raw.length === 10 && !raw.startsWith("+") ? "+91" + raw : raw;
 
   showSpinner(true);
-  window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
+  window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "normal" });
 
   signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier)
     .then((result) => {
@@ -81,8 +83,9 @@ window.verifyOTP = function () {
   if (!otp) { showAlert("Enter OTP", "warning"); return; }
   showSpinner(true);
   confirmationResult.confirm(otp)
-    .then(async () => {
+    .then(async (cred) => {
       showSpinner(false);
+      showAlert("Phone login successful", "success");
       await saveUser(auth.currentUser, "phone");
       window.location.href = "dashboard.html";
     })
@@ -100,13 +103,11 @@ window.register = function () {
 
   showSpinner(true);
   createUserWithEmailAndPassword(auth, email, password)
-    .then(async (cred) => {
+    .then(async () => {
       showSpinner(false);
+      showAlert("Registered successfully", "success");
       await saveUser(auth.currentUser, "email");
-
-      // 🔥 Send verification email
-      await sendEmailVerification(cred.user);
-      showAlert("Registered successfully! Please verify your email.", "info");
+      window.location.href = "dashboard.html";
     })
     .catch((error) => {
       showSpinner(false);
@@ -121,14 +122,9 @@ window.login = function () {
 
   showSpinner(true);
   signInWithEmailAndPassword(auth, email, password)
-    .then(async (cred) => {
+    .then(async () => {
       showSpinner(false);
-
-      if (!cred.user.emailVerified) {
-        showAlert("Please verify your email first.", "warning");
-        return;
-      }
-
+      showAlert("Login successful", "success");
       await saveUser(auth.currentUser, "email");
       window.location.href = "dashboard.html";
     })
@@ -138,26 +134,13 @@ window.login = function () {
     });
 };
 
-// 🔥 Reset Password
-window.resetPassword = function () {
-  const email = document.getElementById("email").value.trim();
-  if (!email) { showAlert("Enter your email first", "warning"); return; }
-
-  sendPasswordResetEmail(auth, email)
-    .then(() => {
-      showAlert("Password reset email sent! Check your inbox.", "info");
-    })
-    .catch((error) => {
-      showAlert(error.message || "Failed to send reset email", "danger");
-    });
-};
-
 // ================= GUEST LOGIN =================
 window.guestLogin = function () {
   showSpinner(true);
   signInAnonymously(auth)
     .then(async () => {
       showSpinner(false);
+      showAlert("Guest login successful", "success");
       await saveUser(auth.currentUser, "guest");
       window.location.href = "dashboard.html";
     })
@@ -181,7 +164,7 @@ function showUser(user) {
   section.style.display = "block";
   const info = document.getElementById("userInfo");
   if (user.phoneNumber) info.innerText = "Phone: " + user.phoneNumber;
-  else if (user.email) info.innerText = "Email: " + user.email + (user.emailVerified ? " ✅" : " ❌ Not Verified");
+  else if (user.email) info.innerText = "Email: " + user.email;
   else info.innerText = "Guest User";
 }
 
