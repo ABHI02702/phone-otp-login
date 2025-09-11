@@ -1,64 +1,128 @@
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+// Firebase imports
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, RecaptchaVerifier, signInWithPhoneNumber,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  signOut, onAuthStateChanged, signInAnonymously
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, doc, setDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// Existing Firebase setup (auth + db) remains same
-const storage = getStorage(app);
-
-// ================= PROFILE PICTURE UPLOAD =================
-window.uploadProfilePic = async function () {
-  const fileInput = document.getElementById("profilePicInput");
-  if (!fileInput.files.length) {
-    alert("Please select an image");
-    return;
-  }
-
-  const file = fileInput.files[0];
-  const user = auth.currentUser;
-  if (!user) {
-    alert("Not logged in");
-    return;
-  }
-
-  try {
-    // Upload to Firebase Storage
-    const storageRef = ref(storage, "profilePics/" + user.uid);
-    await uploadBytes(storageRef, file);
-
-    // Get download URL
-    const url = await getDownloadURL(storageRef);
-
-    // Save to Firestore
-    await setDoc(doc(db, "users", user.uid), { profilePic: url }, { merge: true });
-
-    // Update on screen
-    document.getElementById("profilePic").src = url;
-
-    alert("Profile picture updated successfully!");
-  } catch (error) {
-    console.error(error);
-    alert("Error uploading profile picture: " + error.message);
-  }
+// ---------- Firebase Config ----------
+const firebaseConfig = {
+  apiKey: "AIzaSyA-q3jwEpQDWpVuud0eA87CpUdEQj9FUtA",
+  authDomain: "aks-otp-login.firebaseapp.com",
+  projectId: "aks-otp-login",
+  storageBucket: "aks-otp-login.appspot.com",
+  messagingSenderId: "702413960260",
+  appId: "1:702413960260:web:159aa8f516171d618df811",
+  measurementId: "G-5Q19TWRBG0"
 };
 
-// ================= LOAD PROFILE DATA =================
-async function loadProfile() {
-  const user = auth.currentUser;
-  if (!user) return;
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-  const snap = await getDoc(doc(db, "users", user.uid));
-  if (snap.exists()) {
-    const data = snap.data();
-    document.getElementById("email").innerText = data.email ?? "-";
-    document.getElementById("phone").innerText = data.phone ?? "-";
-    document.getElementById("type").innerText = data.type ?? "-";
-    document.getElementById("lastLogin").innerText = data.lastLogin ?? "-";
-    if (data.profilePic) {
-      document.getElementById("profilePic").src = data.profilePic;
-    }
-  }
+let confirmationResult;
+
+// ---------- Save user to Firestore ----------
+async function saveUser(user, type) {
+  if (!user || !user.uid) return;
+  await setDoc(doc(db, "users", user.uid), {
+    uid: user.uid,
+    email: user.email || null,
+    phone: user.phoneNumber || null,
+    type: type,
+    lastLogin: new Date().toISOString()
+  }, { merge: true });
 }
 
+// ================= PHONE OTP =================
+window.sendOTP = function () {
+  const phoneNumber = document.getElementById("phoneNumber").value.trim();
+  if (!phoneNumber) { alert("Enter phone number"); return; }
+
+  // reCAPTCHA setup only once
+  if (!window.recaptchaVerifier) {
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "normal" });
+  }
+
+  signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier)
+    .then((result) => {
+      confirmationResult = result;
+      alert("OTP sent!");
+    })
+    .catch((error) => {
+      alert("Error: " + error.message);
+      console.error(error);
+    });
+};
+
+window.verifyOTP = function () {
+  const otp = document.getElementById("otp").value.trim();
+  if (!otp) { alert("Enter OTP"); return; }
+  confirmationResult.confirm(otp)
+    .then(async (cred) => {
+      alert("Phone login successful!");
+      await saveUser(cred.user, "phone");
+      window.location.href = "dashboard.html";
+    })
+    .catch((err) => alert("Invalid OTP: " + err.message));
+};
+
+// ================= EMAIL REGISTER / LOGIN =================
+window.register = function () {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  if (!email || !password) { alert("Enter email and password"); return; }
+
+  createUserWithEmailAndPassword(auth, email, password)
+    .then(async (cred) => {
+      alert("Registered successfully!");
+      await saveUser(cred.user, "email");
+      window.location.href = "dashboard.html";
+    })
+    .catch((error) => alert(error.message));
+};
+
+window.login = function () {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  if (!email || !password) { alert("Enter email and password"); return; }
+
+  signInWithEmailAndPassword(auth, email, password)
+    .then(async (cred) => {
+      alert("Login successful!");
+      await saveUser(cred.user, "email");
+      window.location.href = "dashboard.html";
+    })
+    .catch((error) => alert(error.message));
+};
+
+// ================= GUEST LOGIN =================
+window.guestLogin = function () {
+  signInAnonymously(auth)
+    .then(async (cred) => {
+      alert("Guest login successful!");
+      await saveUser(cred.user, "guest");
+      window.location.href = "dashboard.html";
+    })
+    .catch((error) => alert(error.message));
+};
+
+// ================= LOGOUT =================
+window.logout = function () {
+  signOut(auth).then(() => {
+    window.location.href = "index.html";
+  });
+};
+
+// ================= AUTH STATE =================
 onAuthStateChanged(auth, (user) => {
-  if (user) loadProfile();
-  else window.location.href = "index.html";
+  if (user) {
+    console.log("Logged in:", user.uid);
+  } else {
+    console.log("No user logged in");
+  }
 });
