@@ -3,20 +3,20 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getAuth, RecaptchaVerifier, signInWithPhoneNumber,
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  sendEmailVerification, sendPasswordResetEmail,
   signOut, onAuthStateChanged, signInAnonymously
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {
-  getFirestore, doc, setDoc
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// Config
+// Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyA-q3jwEpQDWpVuud0eA87CpUdEQj9FUtA",
   authDomain: "aks-otp-login.firebaseapp.com",
   projectId: "aks-otp-login",
   storageBucket: "aks-otp-login.appspot.com",
   messagingSenderId: "702413960260",
-  appId: "1:702413960260:web:159aa8f516171d618df811"
+  appId: "1:702413960260:web:159aa8f516171d618df811",
+  measurementId: "G-5Q19TWRBG0"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -25,31 +25,40 @@ const db = getFirestore(app);
 
 let confirmationResult;
 
-// ---------- Helpers ----------
-function showAlert(message, type = "success") {
+// ---------- UI helpers ----------
+function showAlert(message, type = "success", timeout = 4000) {
   const box = document.getElementById("alertBox");
   box.className = `alert alert-${type} mt-3`;
   box.textContent = message;
   box.style.display = "block";
-}
-function showSpinner(show = true) {
-  document.getElementById("spinner").style.display = show ? "inline-block" : "none";
-}
-async function saveUser(user, type) {
-  if (!user) return;
-  await setDoc(doc(db, "users", user.uid), {
-    uid: user.uid,
-    email: user.email || null,
-    phone: user.phoneNumber || null,
-    type: type,
-    lastLogin: new Date().toISOString()
-  }, { merge: true });
+  if (timeout) setTimeout(() => { box.style.display = "none"; }, timeout);
 }
 
-// ---------- Phone OTP ----------
+function showSpinner(show = true) {
+  const s = document.getElementById("spinner");
+  if (s) s.style.display = show ? "inline-block" : "none";
+}
+
+// ---------- Save user to Firestore ----------
+async function saveUser(user, type) {
+  if (!user || !user.uid) return;
+  try {
+    await setDoc(doc(db, "users", user.uid), {
+      uid: user.uid,
+      email: user.email || null,
+      phone: user.phoneNumber || null,
+      type: type,
+      lastLogin: new Date().toISOString()
+    }, { merge: true });
+  } catch (err) {
+    console.error("Error saving user:", err);
+  }
+}
+
+// ================= PHONE OTP =================
 window.sendOTP = function () {
   const raw = document.getElementById("phoneNumber").value.trim();
-  if (!raw) { showAlert("Enter phone number", "warning"); return; }
+  if (!raw) return showAlert("Enter phone number", "warning");
   const phoneNumber = raw.length === 10 && !raw.startsWith("+") ? "+91" + raw : raw;
 
   showSpinner(true);
@@ -63,18 +72,19 @@ window.sendOTP = function () {
     })
     .catch((error) => {
       showSpinner(false);
-      showAlert(error.message, "danger");
+      showAlert(error.message || "Failed to send OTP", "danger");
     });
 };
 
 window.verifyOTP = function () {
   const otp = document.getElementById("otp").value.trim();
-  if (!otp) { showAlert("Enter OTP", "warning"); return; }
-
+  if (!otp) return showAlert("Enter OTP", "warning");
   showSpinner(true);
+
   confirmationResult.confirm(otp)
     .then(async () => {
       showSpinner(false);
+      showAlert("Phone login successful", "success");
       await saveUser(auth.currentUser, "phone");
       window.location.href = "dashboard.html";
     })
@@ -84,61 +94,98 @@ window.verifyOTP = function () {
     });
 };
 
-// ---------- Email ----------
+// ================= EMAIL REGISTER / LOGIN =================
 window.register = function () {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
-  if (!email || !password) { showAlert("Enter email & password", "warning"); return; }
+  if (!email || !password) return showAlert("Enter email and password", "warning");
 
   showSpinner(true);
   createUserWithEmailAndPassword(auth, email, password)
-    .then(async () => {
+    .then(async (cred) => {
       showSpinner(false);
+      // Send verification email
+      await sendEmailVerification(cred.user);
+      showAlert("Registered successfully! Please verify your email before login.", "info");
       await saveUser(auth.currentUser, "email");
-      window.location.href = "dashboard.html";
     })
-    .catch((err) => {
+    .catch((error) => {
       showSpinner(false);
-      showAlert(err.message, "danger");
+      showAlert(error.message || "Registration failed", "danger");
     });
 };
 
 window.login = function () {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
-  if (!email || !password) { showAlert("Enter email & password", "warning"); return; }
+  if (!email || !password) return showAlert("Enter email and password", "warning");
 
   showSpinner(true);
   signInWithEmailAndPassword(auth, email, password)
-    .then(async () => {
+    .then(async (cred) => {
       showSpinner(false);
+      if (!cred.user.emailVerified) {
+        showAlert("⚠️ Please verify your email before accessing dashboard.", "warning");
+        return;
+      }
+      showAlert("Login successful", "success");
       await saveUser(auth.currentUser, "email");
       window.location.href = "dashboard.html";
     })
-    .catch((err) => {
+    .catch((error) => {
       showSpinner(false);
-      showAlert(err.message, "danger");
+      showAlert(error.message || "Login failed", "danger");
     });
 };
 
-// ---------- Guest ----------
+// ================= PASSWORD RESET =================
+window.resetPassword = function () {
+  const email = document.getElementById("email").value.trim();
+  if (!email) return showAlert("Enter email to reset password", "warning");
+
+  sendPasswordResetEmail(auth, email)
+    .then(() => showAlert("Password reset email sent to " + email, "info"))
+    .catch((error) => showAlert(error.message, "danger"));
+};
+
+// ================= GUEST LOGIN =================
 window.guestLogin = function () {
   showSpinner(true);
   signInAnonymously(auth)
     .then(async () => {
       showSpinner(false);
+      showAlert("Guest login successful", "success");
       await saveUser(auth.currentUser, "guest");
       window.location.href = "dashboard.html";
     })
-    .catch((err) => {
+    .catch((error) => {
       showSpinner(false);
-      showAlert(err.message, "danger");
+      showAlert(error.message || "Guest login failed", "danger");
     });
 };
 
-// ---------- Logout ----------
+// ================= LOGOUT =================
 window.logout = function () {
   signOut(auth).then(() => {
     window.location.href = "index.html";
   });
 };
+
+// ================= AUTH STATE =================
+function showUser(user) {
+  const section = document.getElementById("userSection");
+  if (!section) return;
+  section.style.display = "block";
+  const info = document.getElementById("userInfo");
+  if (user.phoneNumber) info.innerText = "Phone: " + user.phoneNumber;
+  else if (user.email) info.innerText = "Email: " + user.email;
+  else info.innerText = "Guest User";
+}
+
+onAuthStateChanged(auth, (user) => {
+  if (user) showUser(user);
+  else {
+    const section = document.getElementById("userSection");
+    if (section) section.style.display = "none";
+  }
+});

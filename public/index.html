@@ -12,10 +12,14 @@
   <div class="card shadow-lg p-4 rounded-4">
     <h2 class="text-center mb-4">🔐 Multi Login System</h2>
 
+    <!-- Alert Box -->
+    <div id="alertBox" class="alert" style="display:none;"></div>
+    <div id="spinner" class="spinner-border text-primary" style="display:none;"></div>
+
     <!-- Phone OTP -->
     <div class="mb-4">
       <h5>📱 Phone Login</h5>
-      <input type="text" id="phoneNumber" class="form-control mb-2" placeholder="Enter phone (9876543210)">
+      <input type="text" id="phoneNumber" class="form-control mb-2" placeholder="Enter phone (ex: 9876543210)">
       <div id="recaptcha-container"></div>
       <button class="btn btn-primary w-100 mb-2" onclick="sendOTP()">Send OTP</button>
       <input type="text" id="otp" class="form-control mb-2" placeholder="Enter OTP">
@@ -29,10 +33,12 @@
       <h5>📧 Email Login</h5>
       <input type="email" id="email" class="form-control mb-2" placeholder="Enter email">
       <input type="password" id="password" class="form-control mb-2" placeholder="Enter password">
-      <div class="d-flex gap-2">
+      <div class="d-flex gap-2 mb-2">
         <button class="btn btn-secondary w-50" onclick="register()">Register</button>
         <button class="btn btn-primary w-50" onclick="login()">Login</button>
       </div>
+      <button class="btn btn-link w-100" onclick="resetPassword()">Forgot Password?</button>
+      <small class="text-muted">📧 Note: Please verify your email after registration before login.</small>
     </div>
 
     <hr>
@@ -42,9 +48,11 @@
       <button class="btn btn-warning w-100" onclick="guestLogin()">Continue as Guest</button>
     </div>
 
-    <!-- Alert Box -->
-    <div id="alertBox" style="display:none;"></div>
-    <div id="spinner" class="spinner-border text-primary" style="display:none;"></div>
+    <!-- User Section -->
+    <div id="userSection" class="alert alert-success text-center" style="display:none;">
+      <h5>Welcome, <span id="userInfo"></span></h5>
+      <button class="btn btn-danger mt-2" onclick="logout()">Logout</button>
+    </div>
 
   </div>
 </div>
