@@ -9,15 +9,14 @@ import {
   getFirestore, doc, setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// ---------- Firebase Config ----------
+// Config
 const firebaseConfig = {
   apiKey: "AIzaSyA-q3jwEpQDWpVuud0eA87CpUdEQj9FUtA",
   authDomain: "aks-otp-login.firebaseapp.com",
   projectId: "aks-otp-login",
   storageBucket: "aks-otp-login.appspot.com",
   messagingSenderId: "702413960260",
-  appId: "1:702413960260:web:159aa8f516171d618df811",
-  measurementId: "G-5Q19TWRBG0"
+  appId: "1:702413960260:web:159aa8f516171d618df811"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -26,9 +25,18 @@ const db = getFirestore(app);
 
 let confirmationResult;
 
-// ---------- Save user to Firestore ----------
+// ---------- Helpers ----------
+function showAlert(message, type = "success") {
+  const box = document.getElementById("alertBox");
+  box.className = `alert alert-${type} mt-3`;
+  box.textContent = message;
+  box.style.display = "block";
+}
+function showSpinner(show = true) {
+  document.getElementById("spinner").style.display = show ? "inline-block" : "none";
+}
 async function saveUser(user, type) {
-  if (!user || !user.uid) return;
+  if (!user) return;
   await setDoc(doc(db, "users", user.uid), {
     uid: user.uid,
     email: user.email || null,
@@ -38,91 +46,99 @@ async function saveUser(user, type) {
   }, { merge: true });
 }
 
-// ================= PHONE OTP =================
+// ---------- Phone OTP ----------
 window.sendOTP = function () {
-  const phoneNumber = document.getElementById("phoneNumber").value.trim();
-  if (!phoneNumber) { alert("Enter phone number"); return; }
+  const raw = document.getElementById("phoneNumber").value.trim();
+  if (!raw) { showAlert("Enter phone number", "warning"); return; }
+  const phoneNumber = raw.length === 10 && !raw.startsWith("+") ? "+91" + raw : raw;
 
-  // reCAPTCHA setup only once
-  if (!window.recaptchaVerifier) {
-    window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "normal" });
-  }
+  showSpinner(true);
+  window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "normal" });
 
   signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier)
     .then((result) => {
       confirmationResult = result;
-      alert("OTP sent!");
+      showSpinner(false);
+      showAlert("OTP sent to " + phoneNumber, "info");
     })
     .catch((error) => {
-      alert("Error: " + error.message);
-      console.error(error);
+      showSpinner(false);
+      showAlert(error.message, "danger");
     });
 };
 
 window.verifyOTP = function () {
   const otp = document.getElementById("otp").value.trim();
-  if (!otp) { alert("Enter OTP"); return; }
+  if (!otp) { showAlert("Enter OTP", "warning"); return; }
+
+  showSpinner(true);
   confirmationResult.confirm(otp)
-    .then(async (cred) => {
-      alert("Phone login successful!");
-      await saveUser(cred.user, "phone");
+    .then(async () => {
+      showSpinner(false);
+      await saveUser(auth.currentUser, "phone");
       window.location.href = "dashboard.html";
     })
-    .catch((err) => alert("Invalid OTP: " + err.message));
+    .catch(() => {
+      showSpinner(false);
+      showAlert("Invalid OTP", "danger");
+    });
 };
 
-// ================= EMAIL REGISTER / LOGIN =================
+// ---------- Email ----------
 window.register = function () {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
-  if (!email || !password) { alert("Enter email and password"); return; }
+  if (!email || !password) { showAlert("Enter email & password", "warning"); return; }
 
+  showSpinner(true);
   createUserWithEmailAndPassword(auth, email, password)
-    .then(async (cred) => {
-      alert("Registered successfully!");
-      await saveUser(cred.user, "email");
+    .then(async () => {
+      showSpinner(false);
+      await saveUser(auth.currentUser, "email");
       window.location.href = "dashboard.html";
     })
-    .catch((error) => alert(error.message));
+    .catch((err) => {
+      showSpinner(false);
+      showAlert(err.message, "danger");
+    });
 };
 
 window.login = function () {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
-  if (!email || !password) { alert("Enter email and password"); return; }
+  if (!email || !password) { showAlert("Enter email & password", "warning"); return; }
 
+  showSpinner(true);
   signInWithEmailAndPassword(auth, email, password)
-    .then(async (cred) => {
-      alert("Login successful!");
-      await saveUser(cred.user, "email");
+    .then(async () => {
+      showSpinner(false);
+      await saveUser(auth.currentUser, "email");
       window.location.href = "dashboard.html";
     })
-    .catch((error) => alert(error.message));
+    .catch((err) => {
+      showSpinner(false);
+      showAlert(err.message, "danger");
+    });
 };
 
-// ================= GUEST LOGIN =================
+// ---------- Guest ----------
 window.guestLogin = function () {
+  showSpinner(true);
   signInAnonymously(auth)
-    .then(async (cred) => {
-      alert("Guest login successful!");
-      await saveUser(cred.user, "guest");
+    .then(async () => {
+      showSpinner(false);
+      await saveUser(auth.currentUser, "guest");
       window.location.href = "dashboard.html";
     })
-    .catch((error) => alert(error.message));
+    .catch((err) => {
+      showSpinner(false);
+      showAlert(err.message, "danger");
+    });
 };
 
-// ================= LOGOUT =================
+// ---------- Logout ----------
 window.logout = function () {
   signOut(auth).then(() => {
     window.location.href = "index.html";
   });
 };
-
-// ================= AUTH STATE =================
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    console.log("Logged in:", user.uid);
-  } else {
-    console.log("No user logged in");
-  }
-});

@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Multi Login System</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
 
@@ -15,7 +15,7 @@
     <!-- Phone OTP -->
     <div class="mb-4">
       <h5>📱 Phone Login</h5>
-      <input type="text" id="phoneNumber" class="form-control mb-2" placeholder="Enter phone (ex: 9876543210)">
+      <input type="text" id="phoneNumber" class="form-control mb-2" placeholder="Enter phone (9876543210)">
       <div id="recaptcha-container"></div>
       <button class="btn btn-primary w-100 mb-2" onclick="sendOTP()">Send OTP</button>
       <input type="text" id="otp" class="form-control mb-2" placeholder="Enter OTP">
@@ -29,11 +29,10 @@
       <h5>📧 Email Login</h5>
       <input type="email" id="email" class="form-control mb-2" placeholder="Enter email">
       <input type="password" id="password" class="form-control mb-2" placeholder="Enter password">
-      <div class="d-flex gap-2 mb-2">
+      <div class="d-flex gap-2">
         <button class="btn btn-secondary w-50" onclick="register()">Register</button>
         <button class="btn btn-primary w-50" onclick="login()">Login</button>
       </div>
-      <button class="btn btn-link text-danger p-0" onclick="resetPassword()">Forgot Password?</button>
     </div>
 
     <hr>
@@ -44,14 +43,13 @@
     </div>
 
     <!-- Alert Box -->
-    <div id="alertBox" style="display:none;" class="alert"></div>
-    <div class="text-center">
-      <div id="spinner" class="spinner-border text-primary" style="display:none;" role="status"></div>
-    </div>
+    <div id="alertBox" style="display:none;"></div>
+    <div id="spinner" class="spinner-border text-primary" style="display:none;"></div>
 
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>
