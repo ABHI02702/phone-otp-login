@@ -3,20 +3,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getAuth, RecaptchaVerifier, signInWithPhoneNumber,
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  sendEmailVerification, sendPasswordResetEmail,
-  signOut, onAuthStateChanged, signInAnonymously
+  signOut, onAuthStateChanged, signInAnonymously, sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// Firebase Config
+// Config
 const firebaseConfig = {
   apiKey: "AIzaSyA-q3jwEpQDWpVuud0eA87CpUdEQj9FUtA",
   authDomain: "aks-otp-login.firebaseapp.com",
   projectId: "aks-otp-login",
   storageBucket: "aks-otp-login.appspot.com",
   messagingSenderId: "702413960260",
-  appId: "1:702413960260:web:159aa8f516171d618df811",
-  measurementId: "G-5Q19TWRBG0"
+  appId: "1:702413960260:web:159aa8f516171d618df811"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -25,167 +23,68 @@ const db = getFirestore(app);
 
 let confirmationResult;
 
-// ---------- UI helpers ----------
-function showAlert(message, type = "success", timeout = 4000) {
+// Helper UI
+function showAlert(msg, type="success") {
   const box = document.getElementById("alertBox");
-  box.className = `alert alert-${type} mt-3`;
-  box.textContent = message;
+  if (!box) return;
+  box.className = `alert alert-${type}`;
+  box.textContent = msg;
   box.style.display = "block";
-  if (timeout) setTimeout(() => { box.style.display = "none"; }, timeout);
 }
+function hideSpinner(){document.getElementById("spinner").style.display="none";}
+function showSpinner(){document.getElementById("spinner").style.display="inline-block";}
 
-function showSpinner(show = true) {
-  const s = document.getElementById("spinner");
-  if (s) s.style.display = show ? "inline-block" : "none";
-}
-
-// ---------- Save user to Firestore ----------
+// Save User
 async function saveUser(user, type) {
-  if (!user || !user.uid) return;
-  try {
-    await setDoc(doc(db, "users", user.uid), {
-      uid: user.uid,
-      email: user.email || null,
-      phone: user.phoneNumber || null,
-      type: type,
-      lastLogin: new Date().toISOString()
-    }, { merge: true });
-  } catch (err) {
-    console.error("Error saving user:", err);
-  }
+  if (!user) return;
+  await setDoc(doc(db, "users", user.uid), {
+    uid: user.uid,
+    email: user.email || null,
+    phone: user.phoneNumber || null,
+    type: type,
+    lastLogin: new Date().toISOString()
+  }, { merge: true });
 }
 
-// ================= PHONE OTP =================
+// Phone OTP
 window.sendOTP = function () {
-  const raw = document.getElementById("phoneNumber").value.trim();
-  if (!raw) return showAlert("Enter phone number", "warning");
-  const phoneNumber = raw.length === 10 && !raw.startsWith("+") ? "+91" + raw : raw;
-
-  showSpinner(true);
-  window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "normal" });
-
-  signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier)
-    .then((result) => {
-      confirmationResult = result;
-      showSpinner(false);
-      showAlert("OTP sent to " + phoneNumber, "info");
-    })
-    .catch((error) => {
-      showSpinner(false);
-      showAlert(error.message || "Failed to send OTP", "danger");
-    });
+  const phone = document.getElementById("phoneNumber").value.trim();
+  if (!phone) return showAlert("Enter phone number","danger");
+  window.recaptchaVerifier = new RecaptchaVerifier(auth,"recaptcha-container",{size:"normal"});
+  signInWithPhoneNumber(auth, phone, window.recaptchaVerifier)
+    .then(r => { confirmationResult = r; showAlert("OTP sent","info"); })
+    .catch(e => showAlert(e.message,"danger"));
 };
-
 window.verifyOTP = function () {
   const otp = document.getElementById("otp").value.trim();
-  if (!otp) return showAlert("Enter OTP", "warning");
-  showSpinner(true);
-
+  if (!confirmationResult) return showAlert("Send OTP first","warning");
   confirmationResult.confirm(otp)
-    .then(async () => {
-      showSpinner(false);
-      showAlert("Phone login successful", "success");
-      await saveUser(auth.currentUser, "phone");
-      window.location.href = "dashboard.html";
-    })
-    .catch(() => {
-      showSpinner(false);
-      showAlert("Invalid OTP", "danger");
-    });
+    .then(async cred => { await saveUser(cred.user,"phone"); window.location="dashboard.html"; })
+    .catch(e => showAlert("Invalid OTP","danger"));
 };
 
-// ================= EMAIL REGISTER / LOGIN =================
-window.register = function () {
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value;
-  if (!email || !password) return showAlert("Enter email and password", "warning");
-
-  showSpinner(true);
-  createUserWithEmailAndPassword(auth, email, password)
-    .then(async (cred) => {
-      showSpinner(false);
-      // Send verification email
-      await sendEmailVerification(cred.user);
-      showAlert("Registered successfully! Please verify your email before login.", "info");
-      await saveUser(auth.currentUser, "email");
-    })
-    .catch((error) => {
-      showSpinner(false);
-      showAlert(error.message || "Registration failed", "danger");
-    });
+// Email
+window.register = function(){
+  createUserWithEmailAndPassword(auth, email.value, password.value)
+    .then(async cred => { await saveUser(cred.user,"email"); window.location="dashboard.html"; })
+    .catch(e => showAlert(e.message,"danger"));
+};
+window.login = function(){
+  signInWithEmailAndPassword(auth, email.value, password.value)
+    .then(async cred => { await saveUser(cred.user,"email"); window.location="dashboard.html"; })
+    .catch(e => showAlert(e.message,"danger"));
+};
+window.resetPassword = function(){
+  if (!email.value) return showAlert("Enter email","warning");
+  sendPasswordResetEmail(auth,email.value).then(()=>showAlert("Reset link sent","success")).catch(e=>showAlert(e.message,"danger"));
 };
 
-window.login = function () {
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value;
-  if (!email || !password) return showAlert("Enter email and password", "warning");
-
-  showSpinner(true);
-  signInWithEmailAndPassword(auth, email, password)
-    .then(async (cred) => {
-      showSpinner(false);
-      if (!cred.user.emailVerified) {
-        showAlert("⚠️ Please verify your email before accessing dashboard.", "warning");
-        return;
-      }
-      showAlert("Login successful", "success");
-      await saveUser(auth.currentUser, "email");
-      window.location.href = "dashboard.html";
-    })
-    .catch((error) => {
-      showSpinner(false);
-      showAlert(error.message || "Login failed", "danger");
-    });
-};
-
-// ================= PASSWORD RESET =================
-window.resetPassword = function () {
-  const email = document.getElementById("email").value.trim();
-  if (!email) return showAlert("Enter email to reset password", "warning");
-
-  sendPasswordResetEmail(auth, email)
-    .then(() => showAlert("Password reset email sent to " + email, "info"))
-    .catch((error) => showAlert(error.message, "danger"));
-};
-
-// ================= GUEST LOGIN =================
-window.guestLogin = function () {
-  showSpinner(true);
+// Guest
+window.guestLogin = function(){
   signInAnonymously(auth)
-    .then(async () => {
-      showSpinner(false);
-      showAlert("Guest login successful", "success");
-      await saveUser(auth.currentUser, "guest");
-      window.location.href = "dashboard.html";
-    })
-    .catch((error) => {
-      showSpinner(false);
-      showAlert(error.message || "Guest login failed", "danger");
-    });
+    .then(async cred => { await saveUser(cred.user,"guest"); window.location="dashboard.html"; })
+    .catch(e=>showAlert(e.message,"danger"));
 };
 
-// ================= LOGOUT =================
-window.logout = function () {
-  signOut(auth).then(() => {
-    window.location.href = "index.html";
-  });
-};
-
-// ================= AUTH STATE =================
-function showUser(user) {
-  const section = document.getElementById("userSection");
-  if (!section) return;
-  section.style.display = "block";
-  const info = document.getElementById("userInfo");
-  if (user.phoneNumber) info.innerText = "Phone: " + user.phoneNumber;
-  else if (user.email) info.innerText = "Email: " + user.email;
-  else info.innerText = "Guest User";
-}
-
-onAuthStateChanged(auth, (user) => {
-  if (user) showUser(user);
-  else {
-    const section = document.getElementById("userSection");
-    if (section) section.style.display = "none";
-  }
-});
+// Logout
+window.logout = ()=>signOut(auth).then(()=>window.location="index.html");
