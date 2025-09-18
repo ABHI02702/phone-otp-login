@@ -1,20 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Profile | AKS Tube</title>
+  <title>Watch | AKS Tube</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="navbar">
-    <h1>Profile</h1>
+    <h1>AKS Tube</h1>
     <a href="feed.html"><button>Home</button></a>
   </div>
 
-  <div class="container">
-    <h2>User Profile</h2>
-    <p id="userEmail"></p>
-    <p id="lastSeen"></p>
-    <button onclick="logout()">Logout</button>
+  <div class="container" id="watchContainer">
+    <h2 id="videoTitle"></h2>
+    <video id="videoPlayer" controls width="600"></video>
   </div>
 
   <script src="script.js"></script>

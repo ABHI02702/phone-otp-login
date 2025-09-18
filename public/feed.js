@@ -7,11 +7,11 @@ const firebaseConfig = {
   apiKey: "AIzaSyA-q3jwEpQDWpVuud0eA87CpUdEQj9FUtA",
   authDomain: "aks-otp-login.firebaseapp.com",
   projectId: "aks-otp-login",
-  storageBucket: "aks-otp-login.appspot.com",
+  storageBucket: "aks-otp-login.appspot.com",  
   messagingSenderId: "702413960260",
-  appId: "1:702413960260:web:159aa8f516171d618df811"
+  appId: "1:702413960260:web:159aa8f516171d618df811",
+  measurementId: "G-5Q19TWRBG0"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
