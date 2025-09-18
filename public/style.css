@@ -1,3 +1,4 @@
+/* minimal but professional */
 *{box-sizing:border-box}
 body{margin:0;font-family:Inter,Arial,Helvetica,sans-serif;background:#0e0e10;color:#eaeaea}
 .navbar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:#141414;box-shadow:0 2px 8px rgba(0,0,0,0.6)}

@@ -5,51 +5,60 @@
   <title>AKS Tube - Final</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="style.css">
-  <!-- Firebase v8 -->
+  <!-- Firebase v8 compat -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  <!-- firebase-config must be loaded before app.js -->
   <script src="firebase-config.js"></script>
 </head>
 <body>
   <header class="navbar">
-    <div class="brand">📺 JOBS INFO WITH AKS</div>
+    <div class="brand">📺 AKS TUBE</div>
     <div class="search"><input id="searchInput" placeholder="Search videos..." /></div>
     <div class="nav-right" id="navRight">
+      <!-- content injected by app.js -->
       <button id="signInGoogleBtn">Sign in (Google)</button>
     </div>
   </header>
 
   <main class="main">
-    <!-- Auth Section -->
     <section id="authSection" class="card">
       <h3>Phone OTP Login</h3>
       <input id="phoneInput" placeholder="+91xxxxxxxxxx" />
       <div id="recaptcha-container"></div>
-      <button id="sendOtpBtn">Send OTP</button>
-      <input id="otpInput" placeholder="Enter OTP" />
-      <button id="verifyOtpBtn">Verify OTP</button>
+      <div style="margin-top:8px">
+        <button id="sendOtpBtn">Send OTP</button>
+      </div>
+      <input id="otpInput" placeholder="Enter OTP" style="margin-top:8px"/>
+      <div style="margin-top:8px">
+        <button id="verifyOtpBtn">Verify OTP</button>
+      </div>
       <hr/>
-      <label>Email login (optional)</label><br/>
-      <input id="emailInput" placeholder="Email" />
-      <input id="pwdInput" type="password" placeholder="Password" />
-      <button id="emailSignUpBtn">Create account</button>
-      <button id="emailSignInBtn">Sign in</button>
+      <div>
+        <label>Email login (optional)</label><br/>
+        <input id="emailInput" placeholder="Email" />
+        <input id="pwdInput" type="password" placeholder="Password" />
+        <div style="margin-top:8px">
+          <button id="emailSignUpBtn">Create account</button>
+          <button id="emailSignInBtn">Sign in</button>
+        </div>
+      </div>
     </section>
 
-    <!-- Upload Section -->
     <section id="uploadSection" class="card" style="display:none;">
       <h3>Upload (Cloudinary)</h3>
       <input id="title" placeholder="Video title" />
       <textarea id="description" placeholder="Description"></textarea>
       <label>Video file</label><input id="videoFile" type="file" accept="video/*" />
       <label>Thumbnail (image)</label><input id="thumbFile" type="file" accept="image/*" />
-      <button id="uploadBtn">Upload to Cloudinary</button>
-      <progress id="uploadProgress" value="0" max="100"></progress>
+      <div style="margin-top:8px">
+        <button id="uploadBtn">Upload to Cloudinary</button>
+        <progress id="uploadProgress" value="0" max="100" style="width:100%"></progress>
+      </div>
       <div id="uploadMsg"></div>
     </section>
 
-    <!-- Feed Section -->
     <section id="feedSection" class="card">
       <h3>Latest Videos</h3>
       <div id="feed" class="feed-grid"></div>
