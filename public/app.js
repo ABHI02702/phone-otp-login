@@ -1,14 +1,10 @@
 // app.js - Firebase v8 compat + Cloudinary unsigned upload
-// REQUIREMENTS BEFORE USE:
-// 1) In Cloudinary dashboard create an "unsigned" upload preset (e.g. "yt_unsigned").
-// 2) Put that preset name into CLOUDINARY_UPLOAD_PRESET below.
-// 3) In Firebase Console -> Authentication enable Phone and Google providers.
-// 4) In Firestore rules allow writes to /videos for authenticated users during testing.
 
-const CLOUD_NAME = "dl1wr8zbn";            // your cloud name
-const UPLOAD_PRESET = "YT_AKS"; // <<--- replace with your unsigned preset name
+// ----------------- Cloudinary Config -----------------
+const CLOUD_NAME = "dl1wr8zbn";          // 👈 apna cloudinary cloud name
+const UPLOAD_PRESET = "YT_AKS";          // 👈 apna unsigned preset (Cloudinary me dikh raha hai)
 
-// references to DOM
+// ----------------- DOM References -----------------
 const sendOtpBtn = document.getElementById("sendOtpBtn");
 const verifyOtpBtn = document.getElementById("verifyOtpBtn");
 const phoneInput = document.getElementById("phoneInput");
@@ -28,10 +24,10 @@ const uploadMsg = document.getElementById("uploadMsg");
 const feed = document.getElementById("feed");
 const navRight = document.getElementById("navRight");
 
-// internal vars
+// ----------------- Internal Vars -----------------
 let confirmationResult = null;
 
-// --- Recaptcha render once ---
+// ----------------- Recaptcha -----------------
 function renderRecaptcha() {
   if (window.recaptchaWidgetId !== undefined) return;
   window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
@@ -41,11 +37,10 @@ function renderRecaptcha() {
 }
 renderRecaptcha();
 
-// --- Auth State handling ---
+// ----------------- Auth State -----------------
 firebase.auth().onAuthStateChanged(user => {
   console.log("auth state changed:", user && user.uid);
   if (user) {
-    // show user controls
     navRight.innerHTML = `
       <img src="${user.photoURL || 'https://via.placeholder.com/40'}" alt="pf"/>
       <div>
@@ -56,7 +51,8 @@ firebase.auth().onAuthStateChanged(user => {
     `;
     document.getElementById("btnLogout").onclick = () => firebase.auth().signOut();
     uploadSection.style.display = "block";
-    // update last seen in Firestore
+
+    // Save/update user profile
     firebase.firestore().collection("users").doc(user.uid).set({
       name: user.displayName || null,
       email: user.email || null,
@@ -69,11 +65,10 @@ firebase.auth().onAuthStateChanged(user => {
     document.getElementById("signInGoogleBtn").onclick = googleSignIn;
     uploadSection.style.display = "none";
   }
-  // refresh feed
   loadFeed();
 });
 
-// --- Google sign-in ---
+// ----------------- Google Sign-in -----------------
 function googleSignIn() {
   const provider = new firebase.auth.GoogleAuthProvider();
   firebase.auth().signInWithPopup(provider).catch(e => {
@@ -83,7 +78,7 @@ function googleSignIn() {
 }
 document.getElementById("signInGoogleBtn")?.addEventListener("click", googleSignIn);
 
-// --- Email sign up / sign in (optional) ---
+// ----------------- Email Login -----------------
 emailSignUpBtn?.addEventListener("click", () => {
   const e = emailInput.value.trim(); const p = pwdInput.value;
   if (!e || !p) return alert("Enter email + password");
@@ -95,7 +90,7 @@ emailSignInBtn?.addEventListener("click", () => {
   firebase.auth().signInWithEmailAndPassword(e, p).catch(err => alert(err.message));
 });
 
-// --- Phone login (send OTP) ---
+// ----------------- Phone OTP -----------------
 sendOtpBtn.onclick = async () => {
   const phone = phoneInput.value.trim();
   if (!phone) return alert("Enter phone with country code");
@@ -106,13 +101,12 @@ sendOtpBtn.onclick = async () => {
   } catch (e) {
     console.error("SMS not sent", e);
     alert("Failed to send OTP: " + e.message);
-    // reset recaptcha if needed
     window.recaptchaVerifier.clear && window.recaptchaVerifier.clear();
     renderRecaptcha();
   }
 };
 
-// --- verify OTP ---
+// ----------------- Verify OTP -----------------
 verifyOtpBtn.onclick = async () => {
   const code = otpInput.value.trim();
   if (!confirmationResult) return alert("Please send OTP first");
@@ -126,19 +120,19 @@ verifyOtpBtn.onclick = async () => {
   }
 };
 
-// --- Cloudinary upload helpers ---
+// ----------------- Cloudinary Upload -----------------
 async function uploadToCloudinary(file, type = 'video') {
   const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${type}/upload`;
   const fd = new FormData();
   fd.append('file', file);
-  fd.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  fd.append('upload_preset', UPLOAD_PRESET);  // ✅ correct usage
   const res = await fetch(url, { method: 'POST', body: fd });
   if (!res.ok) throw new Error('Cloudinary upload failed: ' + res.statusText);
   const json = await res.json();
   return json.secure_url || json.url;
 }
 
-// --- Upload flow ---
+// ----------------- Upload Flow -----------------
 uploadBtn.onclick = async () => {
   const videoFile = document.getElementById('videoFile').files[0];
   const thumbFile = document.getElementById('thumbFile').files[0];
@@ -154,21 +148,26 @@ uploadBtn.onclick = async () => {
     uploadProgress.value = 5;
     uploadMsg.innerText = "Uploading video...";
     const videoURL = await uploadToCloudinary(videoFile, 'video');
+
     uploadProgress.value = 50;
     uploadMsg.innerText = "Uploading thumbnail...";
     const thumbURL = await uploadToCloudinary(thumbFile, 'image');
+
     uploadProgress.value = 85;
 
-    // Save to Firestore
+    // ✅ Save video metadata in Firestore
     await firebase.firestore().collection('videos').add({
-      title, desc, videoURL, thumbURL,
-      uploaderId: user.uid,
+      title,
+      desc,
+      videoURL,
+      thumbURL,
+      userId: user.uid, // 👈 Firestore rules ke liye zaroori
       uploaderName: user.displayName || user.phoneNumber || user.email,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
+
     uploadProgress.value = 100;
     uploadMsg.innerText = "Upload complete";
-    // refresh feed
     loadFeed();
   } catch (e) {
     console.error("Upload error", e);
@@ -179,12 +178,16 @@ uploadBtn.onclick = async () => {
   }
 };
 
-// --- Load feed (live) ---
+// ----------------- Load Feed -----------------
 function loadFeed() {
   feed.innerHTML = 'Loading...';
   firebase.firestore().collection('videos').orderBy('createdAt','desc').limit(50)
     .onSnapshot(snap => {
       feed.innerHTML = '';
+      if (snap.empty) {
+        feed.innerHTML = "<div>No videos yet. Upload something!</div>";
+        return;
+      }
       snap.forEach(doc => {
         const d = doc.data();
         const el = document.createElement('div');
@@ -203,11 +206,10 @@ function loadFeed() {
     });
 }
 
-// small helper to avoid XSS when rendering titles
+// ----------------- Helper -----------------
 function escapeHtml(s){ if(!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// initial load
+// ----------------- Initial -----------------
 loadFeed();
 
-// ===== Debug helpers =====
-console.log("App loaded. Cloudinary preset must be:", CLOUDINARY_UPLOAD_PRESET);
+console.log("App loaded. Cloudinary preset must be:", UPLOAD_PRESET);
