@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Upload | AKS Tube</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="navbar">
+    <h1>Upload Video</h1>
+    <a href="feed.html"><button>Back</button></a>
+  </div>
+
+  <div class="container">
+    <input type="file" id="videoFile" accept="video/*">
+    <input type="text" id="videoTitle" placeholder="Video Title">
+    <button onclick="uploadVideo()">Upload</button>
+    <p id="uploadStatus"></p>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

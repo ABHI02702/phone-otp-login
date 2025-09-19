@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi Login - JOBS INFO WITH AKS</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; }
+    h2 { text-align: center; }
+    .container { display: flex; gap: 20px; justify-content: center; }
+    .box { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); width: 250px; }
+    input { width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #ccc; border-radius: 5px; }
+    button { width: 100%; padding: 10px; margin: 5px 0; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    .blue { background: #007BFF; color: white; }
+    .green { background: #28A745; color: white; }
+    .profile { text-align: center; margin-top: 20px; }
+    .profile img { width: 80px; height: 80px; border-radius: 50%; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h2>🔐 Multi Login (Email + OTP)</h2>
+
+  <div class="container" id="loginDiv">
+    <!-- Email Login -->
+    <div class="box">
+      <h3>Email Login</h3>
+      <input type="email" id="email" placeholder="Enter email">
+      <input type="password" id="password" placeholder="Enter password">
+      <button type="button" class="blue" onclick="emailLogin()">Login</button>
+      <button type="button" class="green" onclick="register()">Register</button>
+    </div>
+
+    <!-- Phone Login -->
+    <div class="box">
+      <h3>Phone Login</h3>
+      <input type="text" id="phone" placeholder="+91XXXXXXXXXX">
+      <div id="recaptcha-container"></div>
+      <button type="button" class="blue" onclick="sendOTP()">Send OTP</button>
+      <input type="text" id="otp" placeholder="Enter OTP">
+      <button type="button" class="green" onclick="verifyOTP()">Verify OTP</button>
+    </div>
+  </div>
+
+  <!-- Profile Section -->
+  <div id="profileDiv" class="profile hidden">
+    <img id="profilePic" src="/default-avatar.png" alt="Profile">
+    <h3 id="userName">User</h3>
+    <p id="userEmail"></p>
+    <p id="userPhone"></p>
+    <button type="button" onclick="logout()">Logout</button>
+  </div>
+
+  <script>
+    // ====== Firebase Config ======
+    const firebaseConfig = {
+  apiKey: "AIzaSyA-q3jwEpQDWpVuud0eA87CpUdEQj9FUtA",
+  authDomain: "aks-otp-login.firebaseapp.com",
+  projectId: "aks-otp-login",
+  storageBucket: "aks-otp-login.appspot.com",   // 🔥 FIXED
+  messagingSenderId: "702413960260",
+  appId: "1:702413960260:web:159aa8f516171d618df811",
+  measurementId: "G-5Q19TWRBG0"
+};
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    // reCAPTCHA setup
+    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+      'size': 'normal',
+      'callback': function(response) {
+        console.log("reCAPTCHA verified");
+      }
+    });
+
+    // Email Login
+    function emailLogin() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      auth.signInWithEmailAndPassword(email, password)
+        .then(userCred => showProfile(userCred.user))
+        .catch(err => alert(err.message));
+    }
+
+    // Register new Email User
+    function register() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      auth.createUserWithEmailAndPassword(email, password)
+        .then(userCred => showProfile(userCred.user))
+        .catch(err => alert(err.message));
+    }
+
+    // Send OTP
+    function sendOTP() {
+      const phoneNumber = document.getElementById("phone").value;
+      const appVerifier = window.recaptchaVerifier;
+      auth.signInWithPhoneNumber(phoneNumber, appVerifier)
+        .then(confirmationResult => {
+          window.confirmationResult = confirmationResult;
+          alert("OTP sent!");
+        })
+        .catch(err => alert(err.message));
+    }
+
+    // Verify OTP
+    function verifyOTP() {
+      const otp = document.getElementById("otp").value;
+      window.confirmationResult.confirm(otp)
+        .then(result => {
+          showProfile(result.user);
+        })
+        .catch(err => alert("Invalid OTP!"));
+    }
+
+    // Show Profile
+    function showProfile(user) {
+      document.getElementById("loginDiv").classList.add("hidden");
+      document.getElementById("profileDiv").classList.remove("hidden");
+
+      document.getElementById("userName").innerText = user.displayName || "New User";
+      document.getElementById("userEmail").innerText = user.email || "";
+      document.getElementById("userPhone").innerText = user.phoneNumber || "";
+
+      // OTP users → no photo, so fallback
+      document.getElementById("profilePic").src = user.photoURL || "/default-avatar.png";
+    }
+
+    // Logout
+    function logout() {
+      auth.signOut().then(() => {
+        document.getElementById("profileDiv").classList.add("hidden");
+        document.getElementById("loginDiv").classList.remove("hidden");
+      });
+    }
+
+    // Keep user logged in
+    auth.onAuthStateChanged(user => {
+      if (user) showProfile(user);
+    });
+  </script>
+</body>
+</html>
